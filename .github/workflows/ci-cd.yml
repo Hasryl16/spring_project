@@ -1,0 +1,172 @@
+name: CI/CD Auto Pull and Rebuild
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  deploy-fatur:
+    runs-on: [hasryl]
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Set project path
+      run: |
+        PROJECT_PATH=$(find /home -name 'spring_project' -type d 2>/dev/null | head -1)
+        if [ -z "$PROJECT_PATH" ]; then
+          echo "❌ Folder spring_project tidak ditemukan"
+          exit 1
+        fi
+        echo "PROJECT_PATH=$PROJECT_PATH" >> $GITHUB_ENV
+        echo "📁 Project path: $PROJECT_PATH"
+
+    - name: Stop existing containers first
+      run: |
+        PROJECT_PATH=$(find /home -name 'spring_project' -type d 2>/dev/null | head -1)
+        if [ -n "$PROJECT_PATH" ]; then
+          cd "$PROJECT_PATH"
+          docker compose down || true
+          # Kill any process using port 8080
+          sudo fuser -k 8080/tcp || true
+          sleep 5
+        fi
+
+    - name: Fix local repo by fresh clone
+      working-directory: ${{ env.PROJECT_PATH }}
+      run: |
+        cd ${{ env.PROJECT_PATH }}
+        # Backup current state
+        if [ -d ".git" ]; then
+          mv .git .git.backup || true
+        fi
+
+        # Fresh git setup
+        git init
+        git remote add origin https://github.com/Hasryl16/spring_project.git || git remote set-url origin https://github.com/Hasryl16/spring_project.git
+        git fetch origin master
+        git checkout -f master
+
+        # Clean up backup
+        rm -rf .git.backup || true
+
+    - name: Pull latest changes
+      working-directory: ${{ env.PROJECT_PATH }}
+      run: |
+        git fetch origin master
+        git reset --hard origin/master
+        git clean -fd
+
+    - name: Clean Docker resources
+      working-directory: ${{ env.PROJECT_PATH }}
+      run: |
+        # Remove old containers
+        docker compose down -v || true
+
+        # Clean up dangling images and containers
+        docker system prune -f
+
+        # Remove project-specific images only
+        docker images | grep "transaksi\|nginx" | awk '{print $3}' | xargs -r docker rmi -f || true
+
+    - name: Build and start containers
+      working-directory: ${{ env.PROJECT_PATH }}
+      run: |
+        # Build with no cache
+        docker compose build --no-cache
+
+        # Start in detached mode
+        docker compose up -d
+
+        echo "✅ Containers started"
+
+    - name: Wait for services to be ready
+      working-directory: ${{ env.PROJECT_PATH }}
+      run: |
+        echo "⏳ Waiting for services to initialize..."
+        sleep 10
+
+        # Wait for MySQL to be healthy
+        echo "Checking MySQL health..."
+        for i in {1..30}; do
+          if docker compose exec -T mysql mysqladmin ping -h localhost -uroot -p1234 --silent 2>/dev/null; then
+            echo "✅ MySQL is ready"
+            break
+          fi
+          echo "Waiting for MySQL... ($i/30)"
+          sleep 2
+        done
+
+        # Wait for Spring Boot app
+        echo "Checking Spring Boot app..."
+        sleep 5
+
+        # Show container status
+        docker compose ps
+
+        # Show logs if there are issues
+        echo "📋 Container logs:"
+        docker compose logs --tail=50
+
+    - name: Verify containers are running
+      working-directory: ${{ env.PROJECT_PATH }}
+      run: |
+        # Check if all containers are up
+        if ! docker compose ps | grep -q "Up"; then
+          echo "❌ Some containers are not running!"
+          docker compose logs
+          exit 1
+        fi
+        echo "✅ All containers are running"
+
+    - name: Health check
+      working-directory: ${{ env.PROJECT_PATH }}
+      run: |
+        echo "🔍 Running health checks..."
+
+        # Wait a bit more for Nginx and app to be fully ready
+        sleep 5
+
+        # Check via Nginx on port 80
+        if curl -s -o /dev/null -w "%{http_code}" http://localhost/api/barang | grep -q "200"; then
+          echo "✅ Health check passed (HTTP 200 on /api/barang via Nginx)"
+        else
+          echo "⚠️ Health check warning - checking details..."
+
+          # Show more details
+          echo "Curl response:"
+          curl -v http://localhost/api/barang || true
+
+          echo ""
+          echo "Nginx logs:"
+          docker compose logs nginx --tail=20
+
+          echo ""
+          echo "App logs:"
+          docker compose logs app --tail=20
+
+          echo ""
+          echo "MySQL logs:"
+          docker compose logs mysql --tail=20
+
+          exit 1
+        fi
+
+    - name: Deployment Summary
+      if: always()
+      working-directory: ${{ env.PROJECT_PATH }}
+      run: |
+        echo "📊 Deployment Summary"
+        echo "===================="
+        echo ""
+        echo "Container Status:"
+        docker compose ps
+        echo ""
+        echo "Port Mappings:"
+        docker compose port nginx 80 || echo "Nginx port not exposed"
+        echo ""
+        echo "✅ Deployment completed for runner: fatur"
+
