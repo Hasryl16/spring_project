@@ -16,7 +16,7 @@ jobs:
 
     - name: Set project path
       run: |
-        PROJECT_PATH="/c/belajar-spring/spring_project"
+        PROJECT_PATH="/mnt/c/belajar-spring/spring_project"
         echo "PROJECT_PATH=$PROJECT_PATH" >> $GITHUB_ENV
         echo "📁 Project path: $PROJECT_PATH"
 
@@ -129,8 +129,8 @@ jobs:
 
     - name: Deployment Summary
       if: always()
-      working-directory: ${{ env.PROJECT_PATH }}
       run: |
+        PROJECT_PATH="/mnt/c/belajar-spring/spring_project"
         echo "📊 Deployment Summary"
         echo "===================="
         echo ""
