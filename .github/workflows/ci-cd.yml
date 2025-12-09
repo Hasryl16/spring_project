@@ -34,8 +34,8 @@ jobs:
         # Remove old containers
         docker compose down -v || true
 
-        # Kill any process using port 80
-        sudo fuser -k 80/tcp || true
+        # Kill any process using port 8080
+        sudo fuser -k 8080/tcp || true
         sleep 5
 
         # Clean up dangling images and containers
@@ -138,7 +138,7 @@ jobs:
         docker compose ps
         echo ""
         echo "Port Mappings:"
-        docker compose port nginx 80 || echo "Nginx port not exposed"
+        docker compose port app 8080 || echo "App port not exposed"
         echo ""
         echo "✅ Deployment completed for runner: fatur"
 
