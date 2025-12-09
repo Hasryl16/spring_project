@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy-fatur:
+  deploy-hasryl:
     runs-on: [hasryl]
     timeout-minutes: 30
 
@@ -16,7 +16,7 @@ jobs:
 
     - name: Set project path
       run: |
-        PROJECT_PATH=$(find /home -name 'spring_project' -type d 2>/dev/null | head -1)
+        PROJECT_PATH=$(find /c/belajar-spring/spring_project -name 'spring_project' -type d 2>/dev/null | head -1)
         if [ -z "$PROJECT_PATH" ]; then
           echo "❌ Folder spring_project tidak ditemukan"
           exit 1
@@ -26,7 +26,7 @@ jobs:
 
     - name: Stop existing containers first
       run: |
-        PROJECT_PATH=$(find /home -name 'spring_project' -type d 2>/dev/null | head -1)
+        PROJECT_PATH=$(find /c/belajar-spring/spring_project -name 'spring_project' -type d 2>/dev/null | head -1)
         if [ -n "$PROJECT_PATH" ]; then
           cd "$PROJECT_PATH"
           docker compose down || true
