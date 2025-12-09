@@ -16,8 +16,8 @@ jobs:
 
     - name: Set project path
       run: |
-        PROJECT_PATH=$(find /c/belajar-spring/spring_project -name 'spring_project' -type d 2>/dev/null | head -1)
-        if [ -z "$PROJECT_PATH" ]; then
+        PROJECT_PATH="/c/belajar-spring/spring_project"
+        if [ ! -d "$PROJECT_PATH" ]; then
           echo "❌ Folder spring_project tidak ditemukan"
           exit 1
         fi
