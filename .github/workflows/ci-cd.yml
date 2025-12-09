@@ -42,7 +42,7 @@ jobs:
         docker system prune -f
 
         # Remove project-specific images only
-        docker images | grep "transaksi\|nginx" | awk '{print $3}' | xargs -r docker rmi -f || true
+        docker images | grep "transaksi" | awk '{print $3}' | xargs -r docker rmi -f || true
 
     - name: Build and start containers
       working-directory: ${{ env.PROJECT_PATH }}
