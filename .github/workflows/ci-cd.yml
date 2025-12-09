@@ -20,36 +20,23 @@ jobs:
         echo "PROJECT_PATH=$PROJECT_PATH" >> $GITHUB_ENV
         echo "📁 Project path: $PROJECT_PATH"
 
-    - name: Fix local repo by fresh clone
+    - name: Ensure clean working directory
       working-directory: ${{ env.PROJECT_PATH }}
       run: |
-        cd ${{ env.PROJECT_PATH }}
-        # Backup current state
-        if [ -d ".git" ]; then
-          mv .git .git.backup || true
-        fi
-
-        # Fresh git setup
-        git init
-        git remote add origin https://github.com/Hasryl16/spring_project.git || git remote set-url origin https://github.com/Hasryl16/spring_project.git
-        git fetch origin master
-        git checkout -f master
-
-        # Clean up backup
-        rm -rf .git.backup || true
-
-    - name: Pull latest changes
-      working-directory: ${{ env.PROJECT_PATH }}
-      run: |
-        git fetch origin master
-        git reset --hard origin/master
-        git clean -fd
+        # Clean any untracked files
+        git clean -fd || true
+        # Reset to match remote
+        git reset --hard origin/master || true
 
     - name: Clean Docker resources
       working-directory: ${{ env.PROJECT_PATH }}
       run: |
         # Remove old containers
         docker compose down -v || true
+
+        # Kill any process using port 80
+        sudo fuser -k 80/tcp || true
+        sleep 5
 
         # Clean up dangling images and containers
         docker system prune -f
