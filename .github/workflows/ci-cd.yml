@@ -16,7 +16,7 @@ jobs:
 
     - name: Set project path
       run: |
-        PROJECT_PATH="$PWD"
+        PROJECT_PATH="/c/belajar-spring/spring_project"
         echo "PROJECT_PATH=$PROJECT_PATH" >> $GITHUB_ENV
         echo "📁 Project path: $PROJECT_PATH"
 
