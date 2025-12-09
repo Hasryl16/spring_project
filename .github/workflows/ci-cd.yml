@@ -31,11 +31,11 @@ jobs:
     - name: Clean Docker resources
       working-directory: ${{ env.PROJECT_PATH }}
       run: |
-        # Remove old containers
-        docker compose down -v || true
+        # Remove old containers with timeout
+        timeout 30 docker compose down -v || true
 
-        # Kill any process using port 8080
-        sudo fuser -k 8080/tcp || true
+        # Kill any process using port 8080 (non-sudo)
+        fuser -k 8080/tcp || true
         sleep 5
 
         # Clean up dangling images and containers
@@ -99,12 +99,12 @@ jobs:
       run: |
         echo "🔍 Running health checks..."
 
-        # Wait a bit more for Nginx and app to be fully ready
+        # Wait a bit more for app to be fully ready
         sleep 5
 
-        # Check via Nginx on port 80
-        if curl -s -o /dev/null -w "%{http_code}" http://localhost/api/barang | grep -q "200"; then
-          echo "✅ Health check passed (HTTP 200 on /api/barang via Nginx)"
+        # Check app directly on port 8080
+        if curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/barang | grep -q "200"; then
+          echo "✅ Health check passed (HTTP 200 on /api/barang via app on port 8080)"
         else
           echo "⚠️ Health check warning - checking details..."
 
