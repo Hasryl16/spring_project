@@ -20,14 +20,6 @@ jobs:
         echo "PROJECT_PATH=$PROJECT_PATH" >> $GITHUB_ENV
         echo "📁 Project path: $PROJECT_PATH"
 
-    - name: Stop existing containers first
-      run: |
-        cd "$PROJECT_PATH"
-        docker compose down || true
-        # Kill any process using port 80
-        sudo fuser -k 80/tcp || true
-        sleep 5
-
     - name: Fix local repo by fresh clone
       working-directory: ${{ env.PROJECT_PATH }}
       run: |
