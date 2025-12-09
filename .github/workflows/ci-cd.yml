@@ -16,24 +16,17 @@ jobs:
 
     - name: Set project path
       run: |
-        PROJECT_PATH="/c/belajar-spring/spring_project"
-        if [ ! -d "$PROJECT_PATH" ]; then
-          echo "❌ Folder spring_project tidak ditemukan"
-          exit 1
-        fi
+        PROJECT_PATH="$PWD"
         echo "PROJECT_PATH=$PROJECT_PATH" >> $GITHUB_ENV
         echo "📁 Project path: $PROJECT_PATH"
 
     - name: Stop existing containers first
       run: |
-        PROJECT_PATH=$(find /c/belajar-spring/spring_project -name 'spring_project' -type d 2>/dev/null | head -1)
-        if [ -n "$PROJECT_PATH" ]; then
-          cd "$PROJECT_PATH"
-          docker compose down || true
-          # Kill any process using port 8080
-          sudo fuser -k 8080/tcp || true
-          sleep 5
-        fi
+        cd "$PROJECT_PATH"
+        docker compose down || true
+        # Kill any process using port 80
+        sudo fuser -k 80/tcp || true
+        sleep 5
 
     - name: Fix local repo by fresh clone
       working-directory: ${{ env.PROJECT_PATH }}
