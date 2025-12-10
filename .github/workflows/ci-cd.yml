@@ -1,5 +1,5 @@
 name: CI/CD Auto Pull and Rebuild
-# hello
+
 on:
   push:
     branches: [ master ]
@@ -34,51 +34,30 @@ jobs:
         # Remove old containers with timeout
         timeout 30 docker compose down -v || true
 
-          # Wait for the app container to report as Up
-          for i in {1..30}; do
-            echo "Checking containers (attempt $i/30)..."
-            docker compose ps || true
-            if docker compose ps | grep -E "app.*Up" >/dev/null 2>&1; then
-              echo "✅ app container is Up"
-              break
-            fi
-            sleep 2
-          done
+        # Kill any process using port 8080 (non-sudo)
+        fuser -k 8080/tcp || true
+        sleep 5
 
-          # First try host-level request (port mapping)
-          for i in {1..6}; do
-            echo "Host curl attempt $i/6..."
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/barang 2>/dev/null || echo "000")
-            if [ "$HTTP_CODE" = "200" ]; then
-              echo "✅ Health check passed (HTTP $HTTP_CODE via host port 8080)"
-              exit 0
-            fi
-            sleep 2
-          done
+        # Clean up dangling images and containers
+        docker system prune -f
 
-          # If host-level check fails, try an in-container request (avoids host networking/port mapping issues)
-          echo "Host-level check failed; trying in-container request..."
-          IN_CONTAINER_CODE=$(docker compose exec -T app sh -c 'curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/barang' 2>/dev/null || echo "000")
-          if [ "$IN_CONTAINER_CODE" = "200" ]; then
-            echo "✅ Health check passed (HTTP $IN_CONTAINER_CODE from inside container)"
-            exit 0
-          fi
+        # Remove project-specific images only
+        docker images | grep "transaksi" | awk '{print $3}' | xargs -r docker rmi -f || true
 
-          # Final failure: print verbose info
-          echo "❌ Health check failed (host=$HTTP_CODE, in-container=$IN_CONTAINER_CODE)"
-          echo "\nVerbose host curl output:"
-          curl -v http://localhost:8080/api/barang || true
+    - name: Build and start containers
+      working-directory: ${{ env.PROJECT_PATH }}
+      run: |
+        # Build with no cache
+        docker compose build --no-cache
 
-          echo "\nDocker compose ps:"
-          docker compose ps || true
+        # Start in detached mode
+        docker compose up -d
 
-          echo "\nApp logs:"
-          docker compose logs app --tail=50 || true
+        echo "✅ Containers started"
 
-          echo "\nMySQL logs:"
-          docker compose logs mysql --tail=50 || true
-
-          exit 1
+    - name: Wait for services to be ready
+      working-directory: ${{ env.PROJECT_PATH }}
+      run: |
         echo "⏳ Waiting for services to initialize..."
         sleep 10
 
@@ -120,37 +99,33 @@ jobs:
       run: |
         echo "🔍 Running health checks..."
 
-        # Wait for app to be ready on port 8080 with retries
-        for i in {1..30}; do
-          echo "Health check attempt $i/30..."
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/barang 2>/dev/null || echo "000")
-          
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Health check passed (HTTP $HTTP_CODE on /api/barang)"
-            exit 0
-          fi
-          
-          if [ $i -lt 30 ]; then
-            echo "⏳ App not ready yet (HTTP $HTTP_CODE), waiting..."
-            sleep 2
-          fi
-        done
+        # Wait a bit more for app to be fully ready
+        sleep 5
 
-        # If we get here, health check failed
-        echo "❌ Health check failed after 30 attempts"
-        echo ""
-        echo "Attempting curl with verbose output:"
-        curl -v http://localhost:8080/api/barang || true
+        # Check app directly on port 8080
+        if curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/barang | grep -q "200"; then
+          echo "✅ Health check passed (HTTP 200 on /api/barang via app on port 8080)"
+        else
+          echo "⚠️ Health check warning - checking details..."
 
-        echo ""
-        echo "App logs:"
-        docker compose logs app --tail=30
+          # Show more details
+          echo "Curl response:"
+          curl -v http://localhost/api/barang || true
 
-        echo ""
-        echo "MySQL logs:"
-        docker compose logs mysql --tail=30
+          echo ""
+          echo "Nginx logs:"
+          docker compose logs nginx --tail=20
 
-        exit 1
+          echo ""
+          echo "App logs:"
+          docker compose logs app --tail=20
+
+          echo ""
+          echo "MySQL logs:"
+          docker compose logs mysql --tail=20
+
+          exit 1
+        fi
 
     - name: Deployment Summary
       if: always()
@@ -166,4 +141,3 @@ jobs:
         docker compose port app 8080 || echo "App port not exposed"
         echo ""
         echo "✅ Deployment completed for runner: fatur"
-
