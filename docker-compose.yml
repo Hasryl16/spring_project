@@ -18,8 +18,8 @@ services:
     container_name: mysql-db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: mydb
+      MYSQL_ROOT_PASSWORD: "1234"
+      MYSQL_DATABASE: penjualan
       MYSQL_USER: myuser
       MYSQL_PASSWORD: mypassword
     volumes:
@@ -36,7 +36,7 @@ services:
       - mysql
     # 💡 Tidak pakai -p di command line, pakai MYSQL_PWD
     environment:
-      MYSQL_PWD: rootpassword
+      MYSQL_PWD: "1234"
     command: >
       sh -c "
         echo 'Waiting for MySQL...';
@@ -44,7 +44,7 @@ services:
           sleep 1;
         done;
         echo 'MySQL is up, running init script...';
-        mysql -hmysql -uroot mydb < /init/penjualan.sql;
+        mysql -hmysql -uroot penjualan < /init/penjualan.sql;
         echo 'Init done.';
       "
     volumes:
@@ -64,7 +64,7 @@ services:
       PMA_HOST: mysql
       PMA_PORT: 3306
       PMA_USER: root
-      PMA_PASSWORD: rootpassword
+      PMA_PASSWORD: "1234"
     ports:
       - "8081:80"
     networks:
