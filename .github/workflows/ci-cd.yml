@@ -99,30 +99,38 @@ jobs:
       run: |
         echo "🔍 Running health checks..."
 
-        # Wait a bit more for app to be fully ready
-        sleep 5
+        # Wait for app to be ready on port 8080 with retries
+        for i in {1..30}; do
+          echo "Health check attempt $i/30..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/barang 2>/dev/null || echo "000")
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Health check passed (HTTP $HTTP_CODE on /api/barang)"
+            exit 0
+          fi
+          
+          if [ $i -lt 30 ]; then
+            echo "⏳ App not ready yet (HTTP $HTTP_CODE), waiting..."
+            sleep 2
+          fi
+        done
 
-        # Check app directly on port 8080
-        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/barang)
-        if [ "$HTTP_CODE" = "200" ]; then
-          echo "✅ Health check passed (HTTP $HTTP_CODE on /api/barang via app on port 8080)"
-        else
-          echo "⚠️ Health check returned HTTP $HTTP_CODE - checking details..."
+        # If we get here, health check failed
+        echo "❌ Health check failed after 30 attempts"
+        echo ""
+        echo "Attempting curl with verbose output:"
+        curl -v http://localhost:8080/api/barang || true
 
-          # Show more details
-          echo "Curl response:"
-          curl -v http://localhost:8080/api/barang || true
+        echo ""
+        echo "App logs:"
+        docker compose logs app --tail=30
 
-          echo ""
-          echo "App logs:"
-          docker compose logs app --tail=20
+        echo ""
+        echo "MySQL logs:"
+        docker compose logs mysql --tail=30
 
-          echo ""
-          echo "MySQL logs:"
-          docker compose logs mysql --tail=20
+        exit 1
 
-          exit 1
-        
     - name: Deployment Summary
       if: always()
       run: |
