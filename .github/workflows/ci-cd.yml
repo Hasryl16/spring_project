@@ -103,18 +103,15 @@ jobs:
         sleep 5
 
         # Check app directly on port 8080
-        if curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/barang | grep -q "200"; then
-          echo "✅ Health check passed (HTTP 200 on /api/barang via app on port 8080)"
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/barang)
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "✅ Health check passed (HTTP $HTTP_CODE on /api/barang via app on port 8080)"
         else
-          echo "⚠️ Health check warning - checking details..."
+          echo "⚠️ Health check returned HTTP $HTTP_CODE - checking details..."
 
           # Show more details
           echo "Curl response:"
-          curl -v http://localhost/api/barang || true
-
-          echo ""
-          echo "Nginx logs:"
-          docker compose logs nginx --tail=20
+          curl -v http://localhost:8080/api/barang || true
 
           echo ""
           echo "App logs:"
@@ -125,8 +122,7 @@ jobs:
           docker compose logs mysql --tail=20
 
           exit 1
-        fi
-
+        
     - name: Deployment Summary
       if: always()
       run: |
