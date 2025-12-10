@@ -19,15 +19,7 @@ class BarangRepositoryTest {
 
         @Test
         void saveAndFindById_shouldPersistAndLoadBarang() {
-                Barang barang = new Barang(
-                                "T001",
-                                "Sabun Mandi",
-                                10,
-                                5000,
-                                20.0,
-                                0.0,
-                                (byte) 103,
-                                "S003");
+                Barang barang = new Barang();
 
                 barangRepository.save(barang);
 
@@ -39,8 +31,8 @@ class BarangRepositoryTest {
 
         @Test
         void findByNamaContainingIgnoreCase_shouldReturnMatchingRows() {
-                barangRepository.save(new Barang("T001", "Sabun Mandi", 10, 5000, 20.0, 0.0, (byte) 103, "S003"));
-                barangRepository.save(new Barang("T002", "Shampoo Wangi", 5, 15000, 25.0, 0.0, (byte) 103, "S003"));
+                barangRepository.save(new Barang());
+                barangRepository.save(new Barang());
 
                 List<Barang> hasil = barangRepository.findByNamaContainingIgnoreCase("sham");
 
